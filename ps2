@@ -1,0 +1,70 @@
+/*Elizabeth Blake
+version 16
+Data Management problem set 2*/
+
+*--------Formatting ns2 dataset----------*
+
+use ~/ns2.dta //adjust as necessary
+
+sample 50, count
+
+drop ParticipantID
+keep Age Sex date zipcode lone fne
+
+bys zipcode: egen m_lone_zip=mean(lone)
+*this step created a new variable (m_lone_zip) which represents the mean loneliness score for each zipcode*
+
+bys zipcode: egen m_fne_zip=mean(fne)
+*this step created a new variable (m_fne_zip) which represents the mean social anxiety score for each zipcode*
+
+save ns2_2, replace
+
+collapse m_lone_zip m_fne_zip, by (zipcode)
+save ns2_3, replace
+*ns2_3 is now ready to merge*
+
+*--------Formatting urban/rural pop. dataset----------*
+
+clear
+insheet using "https://docs.google.com/uc?id=1Z-uwRD_9Qmnl9EPfWaOlX97j4tG8L1NP&export=download"
+
+rename v2 zipcode
+rename v4 tot_pop
+rename v5 urb_pop
+rename v8 rur_pop
+
+drop v1 v3 v6 v7 v9
+*dropping unnecessary data*
+
+drop in 1
+drop in 1
+*used this twice to drop first 2 rows of observations that were unnecessary column titles*
+
+destring zipcode, replace
+destring urb_pop, replace
+destring rur_pop, replace
+destring tot_pop, replace
+
+save urban_pop, replace
+clear
+*urban_pop is now ready to merge*
+
+*------------Merging datasets---------------*
+
+use ns2_3, clear
+
+merge 1:m zipcode using urban_pop
+
+edit //visual check looks good, now need to check merge variable
+
+tab _m //looks good, all zipcodes in sample from ns2_3 were matched to urban_pop dataset
+
+drop if _m<3 & _m>1 //this deletes all unnecessary data for zipcodes that do not have data in the ns2_3 dataset
+
+*final visual check*
+edit
+sum
+*looks good*
+
+save ns2urb, replace
+
