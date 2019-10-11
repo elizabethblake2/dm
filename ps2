@@ -2,9 +2,12 @@
 version 16
 Data Management problem set 2*/
 
+//you didnt use recode!, pls read instructions carefully and ask questions early!
+
 *--------Formatting ns2 dataset----------*
 
 use ~/ns2.dta //adjust as necessary
+//i dont have these data! it must load from online!
 
 sample 50, count
 
