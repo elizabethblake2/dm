@@ -1,0 +1,407 @@
+//Elizabeth Blake
+//Version 16
+//Problem Set 3
+
+*Note: The below code for ps3 contains all 5 merges (I had a few mistakes in my last merge from ps2, so I redid that assignment and included the updated code here)*
+
+//This project uses data collected from undergraduate psychology students regarding their social health/social functioning (e.g.,loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look at community/county-level factors that may influence personal social health and social functioning//
+
+/////////////////////////////////
+////Cleaning Original Dataset////
+/////////////////////////////////
+
+*-----Load raw data-----*
+use "https://docs.google.com/uc?id=1gXH4hQe2nFSTpFS0qD1PYuzidmi9eRv6&export=download", clear
+
+pwd
+mkdir ~/DataManagement/datman
+cd~/DataManagement/datman
+
+*-----Clean/organize raw data-----*
+
+*sorting*
+sort date zipcode
+
+*creating id value*
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+*creating newvar county from zipcode data*
+gen county=.
+replace county=1 if zipcode == 08037| zipcode == 08234
+replace county = 2 if zipcode == 08015| zipcode == 08016| zipcode == 08046| zipcode == 08052| zipcode == 08053| zipcode == 08054|zipcode == 08075|zipcode == 08077
+replace county = 3 if zipcode == 08002| zipcode == 08003| zipcode == 08012| zipcode == 08021| zipcode == 08030| zipcode == 08031| zipcode == 08033| zipcode == 08034| zipcode == 08035| zipcode == 08043| zipcode == 08049| zipcode == 08059| zipcode == 08081| zipcode == 08104| zipcode == 08105| zipcode == 08106| zipcode == 08107| zipcode == 08108| zipcode == 08109| zipcode == 08110
+replace county = 4 if zipcode == 08204
+replace county = 5 if zipcode == 08332| zipcode == 08360
+replace county = 6 if zipcode == 19087
+replace county = 7 if zipcode == 07112
+replace county = 8 if zipcode == 08056| zipcode == 08080| zipcode == 08085| zipcode == 08086| zipcode == 08090| zipcode == 08094
+replace county = 9 if zipcode == 01109
+replace county = 10 if zipcode == 08638
+replace county = 11 if zipcode == 08816| zipcode == 08817| zipcode == 08854| zipcode == 08901
+replace county = 12 if zipcode == 19713
+replace county = 13 if zipcode == 08008
+replace county = 14 if zipcode == 19104| zipcode == 19120| zipcode == 19127| zipcode == 19133| zipcode == 19153
+
+*creating string var for county*
+rename county county_num
+tostring county_num, gen (county)
+replace county="atlantic" if county_num == 1
+replace county="burlington" if county_num == 2
+replace county="camden" if county_num == 3
+replace county="cape_may" if county_num== 4
+replace county="cumberland" if county_num == 5
+replace county="delaware" if county_num == 6
+replace county="essex" if county_num == 7
+replace county="gloucester" if county_num == 8
+replace county="hampden" if county_num == 9
+replace county="mercer" if county_num == 10
+replace county="middlesex" if county_num == 11
+replace county="new_castle" if county_num == 12
+replace county="ocean" if county_num == 13
+replace county="philadelphia" if county_num == 14
+
+tab county
+
+*convert string vars to numeric w/labels*
+encode Sex, gen (sex) 
+encode RaceEthnicity, gen (race_ethnic) 
+encode ParentEduc, gen (parent_edu)
+encode HouseInc, gen (house_inc)
+encode Firstgen, gen (firstgen)
+encode BornUS, gen (bornUS)
+encode EngLang, gen (eng_lang)
+encode GPA, gen (gpa)
+
+*drop string vars that were encoded*
+drop Sex RaceEthnicity ParentEduc HouseInc Firstgen BornUS EngLang GPA
+
+*narrowing down varlist*
+keep id sex race_ethnic parent_edu house_inc firstgen bornUS eng_lang gpa StatusRank latitude longitude zipcode date lone attachanx attachavoid fne county //keeps only the desired variables
+
+*creating zipcode level data*
+bys zipcode: egen m_lone_zip=mean(lone)
+//created a new variable (m_lone_zip) which represents the mean loneliness score for each zipcode
+
+bys zipcode: egen m_fne_zip=mean(fne)
+//created a new variable (m_fne_zip) which represents the mean social anxiety score for each zipcode
+
+bys county: egen m_lone_county=mean(lone)
+//created a new variable (m_lone_county) which represents the mean loneliness score for each county
+bys county: egen m_fne_county=mean(fne)
+//created a new variable (m_fne_county) which represents the mean social anxiety score for each county
+
+sort id 
+
+save nos_fne2, replace
+clear
+
+////////////////////////////////////////////////
+/////MERGE 1 (Urban/Rural Population Data)//////
+////////////////////////////////////////////////
+
+//This data came from the United States Census Bureau using the American Fact Finder online platform. This dataset provides the population totals as of the 2010 census that live in urban areas and rural areas, sorted by zipcode//
+
+*----Cleaning the urbanpopulation dataset----*
+insheet using "https://docs.google.com/uc?id=1Z-uwRD_9Qmnl9EPfWaOlX97j4tG8L1NP&export=download", clear
+
+rename v2 zipcode
+rename v4 tot_pop
+rename v5 urb_pop
+rename v8 rur_pop
+
+drop v1 v3 v6 v7 v9 //dropping unnecessary data
+
+drop in 1
+drop in 1
+//used this twice to drop first 2 rows of observations that were unnecessary column titles
+
+destring zipcode, replace
+destring urb_pop, replace
+destring rur_pop, replace
+destring tot_pop, replace
+
+save urban_pop, replace
+clear
+//urban_pop is now ready to merge
+
+*Merging nos_fne2 dataset with urban_pop dataset*
+use nos_fne2, clear
+
+merge m:1 zipcode using urban_pop
+
+edit //visual check looks good, now need to check merge variable
+
+tab _m //looks good, all zipcodes in sample from ns2_3 were matched to urban_pop dataset
+
+drop if _m<3 & _m>1 //this deletes all unnecessary data for zipcodes that do not have data in the ns2_3 dataset
+
+rename _m _m1
+
+*visual check*
+sum
+//looks good
+
+sort id
+
+save ns2urb, replace
+clear
+
+//////////////////////////////////////////
+/////MERGE 2 (Weather data by zipcode)////
+//////////////////////////////////////////
+
+//This data was collected online from the National Climactic Data Center Global Surface Summary of Day. It reports the mean temperature and the total precipitation by zipcode and date//
+
+use "https://docs.google.com/uc?id=10eiOeAUMgIqSaZ_lBgT8jljRbNCWpNm7&export=download", clear
+
+*----Cleaning up weather dataset*
+*create id values*
+sort date zipcode
+
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+save weather_zip, replace
+
+*----Merging ns2urb dataset with weather_zip dataset----*
+use weather_zip, clear
+
+merge 1:1 id using ns2urb
+
+edit //visual check looks good, now need to check merge variable
+
+tab _merge //looks good, all 229 observations matched
+
+rename _merge _m2 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_2, replace
+clear
+
+///////////////////////////////////////////
+////MERGE 3 (Poverty data by zipcode)//////
+///////////////////////////////////////////
+
+//This data came from the United States Census Bureau using the American Fact Finder online platform. This dataset provides information regarding poverty levels sorted by zipcode, age, sex, race, etc.//
+
+clear
+insheet using "https://docs.google.com/uc?id=1J03T2PISKT7ANZ0-0xVtDRR9rJgCmdFu&export=download"
+
+*-----Cleaning up the data-----*
+
+*naming relevant variables*
+rename v2 zipcode
+rename v4 total_pop
+rename v6 tot_below_pov
+rename v8 perc_below_pov
+rename v40 tot_18_34
+rename v42 tot_belowpov18_34
+rename v44 perc_belowpov18_34
+rename v46 tot_35_64
+rename v48 tot_belowpov35_64
+rename v50 perc_belowpov35_64
+rename v52 tot_60_up
+rename v54 tot_belowpov60up
+rename v56 perc_belowpov60up
+rename v64 tot_sex_male
+rename v66 tot_male_belowpov
+rename v68 perc_male_belowpov
+rename v70 tot_sex_female
+rename v72 tot_female_belowpov
+rename v74 perc_female_belowpov
+rename v76 tot_race_white_oth
+rename v78 tot_belowpov_white_oth
+rename v80 perc_belowpov_white_oth
+rename v82 tot_race_black
+rename v84 tot_belowpov_black
+rename v86 perc_belowpov_black
+rename v88 tot_race_amer_indian
+rename v90 tot_belowpov_amer_indian
+rename v92 perc_belowpov_amer_indian
+rename v94 tot_race_asian
+rename v96 tot_belowpov_asian
+rename v98 perc_belowpov_asian
+rename v100 tot_race_pacific_isl
+rename v102 tot_belowpov_pacific_isl
+rename v104 perc_belowpov_pacific_isl
+rename v106 tot_race_other
+rename v108 tot_belowpov_other
+rename v110 perc_belowpov_other
+rename v112 tot_race_2plus_races
+rename v114 tot_belowpov_2plus_races
+rename v116 perc_belowpov_2plus_races
+rename v118 tot_race_hispanic_lat
+rename v120 tot_belowpov_hispanic_lat
+rename v122 perc_belowpov_hispanic_lat
+rename v124 tot_race_white_only
+rename v126 tot_belowpov_white_only
+rename v128 perc_belowpov_white_only
+rename v226 tot_income_50perc_pov
+rename v232 tot_income_125perc_pov
+rename v238 tot_income150perc_pov
+rename v244 tot_income185perc_pov
+rename v250 tot_income_200perc_pov
+rename v256 tot_income_300perc_pov
+rename v262 tot_income_400perc_pov
+rename v268 tot_income_500perc_pov
+rename v305 tot_18_24
+rename v306 tot_belowpov18_24
+rename v308 perc_belowpov18_24
+
+*removing unnecessary variables*
+keep zipcode total_pop tot_below_pov perc_below_pov tot_18_34 tot_belowpov18_34 perc_belowpov18_34 tot_35_64 tot_belowpov35_64 perc_belowpov35_64 tot_60_up tot_belowpov60up perc_belowpov60up tot_sex_male tot_male_belowpov perc_male_belowpov tot_sex_female tot_female_belowpov perc_female_belowpov tot_race_white_oth tot_belowpov_white_oth perc_belowpov_white_oth tot_race_black tot_belowpov_black perc_belowpov_black tot_race_amer_indian tot_belowpov_amer_indian perc_belowpov_amer_indian tot_race_asian tot_belowpov_asian perc_belowpov_asian tot_race_pacific_isl tot_belowpov_pacific_isl perc_belowpov_pacific_isl tot_race_other tot_belowpov_other perc_belowpov_other tot_race_2plus_races tot_belowpov_2plus_races perc_belowpov_2plus_races tot_race_hispanic_lat tot_belowpov_hispanic_lat perc_belowpov_hispanic_lat tot_race_white_only tot_belowpov_white_only  perc_belowpov_white_only tot_income_50perc_pov tot_income_125perc_pov tot_income150perc_pov tot_income185perc_pov tot_income_200perc_pov tot_income_300perc_pov tot_income_400perc_pov tot_income_500perc_pov tot_18_24 tot_belowpov18_24 perc_belowpov18_24
+
+
+//sorry for that giant chunk, I didn't know how to do that in a more consolidated way//
+
+drop in 1
+drop in 1
+//gets rid of the variable names and labels as rows
+
+destring zipcode, replace
+
+save povertycensus, replace
+clear
+
+*-----Merging povertycensus dataset with nos_merge_2-----*
+use povertycensus, clear
+
+merge 1:m zipcode using nos_merge_2
+
+tab _merge //looks good, 227 observations matched out of 229 total
+
+//2 unmatched from using, these were expected as these 2 values were from individuals whose locations were outside NJ and PA (1 in MA, 1 in DE). The povertycensus dataset only provides information based on zipcode in NJ and PA, so the two individuals in MA and DE will be unmatched in this dataset.//
+
+drop if _merge<2 & _merge>0 //this will drop all the data from zipcodes not existing in original nos_fne dataset
+
+rename _merge _m3 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_3, replace
+clear
+
+///////////////////////////////////////////////
+/////MERGE 4 (Marital Status by Zipcode)///////
+///////////////////////////////////////////////
+
+//This data came from the United States Census Bureau using the American Fact Finder online platform. This dataset provides information regarding marital status by age and zipcode.//
+
+insheet using "https://docs.google.com/uc?id=15gncbh_UCq01NxLMgCp2E1SkXroSA3nP&export=download", clear
+
+*----Cleaning up dataset----*
+rename v2 zipcode
+rename v4 tot_pop_15_plus
+rename v6 perc_married_15plus
+rename v8 perc_widowed_15plus
+rename v10 perc_divorced_15plus
+rename v12 perc_separated_15plus
+rename v14 perc_nevermarr_15plus
+
+keep zipcode tot_pop_15_plus perc_married_15plus perc_widowed_15plus perc_divorced_15plus perc_separated_15plus perc_nevermarr_15plus
+
+drop in 1
+drop in 1
+//drops first two rows that are labels
+
+destring zipcode, replace
+
+save marstatus, replace
+
+*----Merging with marstatus dataset with nos_merge_3 dataset----*
+use marstatus, clear
+
+merge 1:m zipcode using nos_merge_3
+
+tab _merge //looks good, 229 observations matched out of 229 in original dataset
+
+drop if _merge<3 & _merge>0 //this will drop all the data from zipcodes not existing in original nos_fne dataset
+
+tab _merge
+
+rename _merge _m4 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_4, replace
+clear
+
+///////////////////////////////////////////////
+////MERGE 5 (Obesity Prevlance by County)//////
+///////////////////////////////////////////////
+
+//This dataset was collected from the New Jersey Department of Health, using the online New Jersey State Health Assessments Data. This dataset provides data regarding obesity prevalence sorted by county in the state of New Jersey.//
+
+use "https://docs.google.com/uc?id=1qljuaC4UHi7KligX4wygxnGydAbcUCUM&export=download", clear
+
+*----Cleaning up dataset first----*
+rename CountyofResidence county
+rename CountyofResidenceID county_id
+rename SampleSize tot_sample
+rename Percent perc_obese
+
+drop CILL CIUL RSE tot_sample //dropping unnecessary variables
+
+replace county="atlantic" if county == "Atlantic"
+replace county="bergen" if county == "Bergen"
+replace county="burlington" if county == "Burlington"
+replace county="camden" if county == "Camden"
+replace county="cape may" if county == "Cape May"
+replace county="cumberland" if county == "Cumberland"
+replace county="essex" if county == "Essex"
+replace county="gloucester" if county == "Gloucester"
+replace county="hudson" if county == "Hudson"
+replace county="hunterdon" if county == "Hunterdon"
+replace county="mercer" if county == "Mercer"
+replace county="middlesex" if county == "Middlesex"
+replace county="monmouth" if county == "Monmouth"
+replace county="morris" if county == "Morris"
+replace county="ocean" if county == "Ocean"
+replace county="passaic" if county == "Passaic"
+replace county="salem" if county == "Salem"
+replace county="somerset" if county == "Somerset"
+replace county="sussex" if county == "Sussex"
+replace county="union" if county == "Union"
+replace county="warren" if county == "Warren"
+
+tab county, mi
+//57 missing observations...need to drop these!//
+
+drop in 22/78
+
+save county_obesity2, replace
+
+*-----Merging with nos_merge_3 dataset-----*
+use county_obesity2, clear
+
+merge 1:m county using nos_merge_4
+
+tab _merge
+//there are some counties in both datasets that do not occur in the other dataset, so that is why there are 21 unmatched observations//
+
+//drop the counties that occur ONLY in the county_obesity(master), because I have no other relevant data for those counties and therefore do not need their obesity data//
+drop if _merge<2 & _merge>0
+
+rename _merge _m5
+
+save nos_merge_5, replace
+clear
+
+//////////////////////////////
+//////Reshaping Datasets//////
+//////////////////////////////
+
+reshape wide lone, i(id) j(sex)
+sum lone1
+sum lone2
+*this creates 2 new variables, loneliness score if male and loneliness score if female, so can at least get a sense of difference in loneliness b/t males and females*
+
+use nos_merge_5, clear
+
+reshape wide fne, i(id) j(sex)
+sum fne1
+sum fne2
+*same as above, gives a difference in mean, standard deviation, min, and max for social anxiety in males and females*
+
+//reshape didn't seem to work well with my data, most of my variables resulted in errors b/c they only had one value per participant
+//maybe look for longitudinal data instead of one-time collections to merge with in the future if necessary to be able to reshape better
