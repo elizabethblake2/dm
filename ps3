@@ -2,6 +2,8 @@
 //Version 16
 //Problem Set 3
 
+//need to say which version you are using
+
 *Note: The below code for ps3 contains all 5 merges (I had a few mistakes in my last merge from ps2, so I redid that assignment and included the updated code here)*
 
 //This project uses data collected from undergraduate psychology students regarding their social health/social functioning (e.g.,loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look at community/county-level factors that may influence personal social health and social functioning//
@@ -11,6 +13,7 @@
 /////////////////////////////////
 
 *-----Load raw data-----*
+//important!! befoire making it public drop lat/long (and any other identyfying info)--lat long points to persons house and violates privacy 
 use "https://docs.google.com/uc?id=1gXH4hQe2nFSTpFS0qD1PYuzidmi9eRv6&export=download", clear
 
 pwd
@@ -28,6 +31,7 @@ egen seq = fill (1 2 3 4 5 6 7 8 9 10)
 rename seq id
 order id
 
+//if you look at this paragraph and next, you'll notice that can do everything in one paragraph!
 *creating newvar county from zipcode data*
 gen county=.
 replace county=1 if zipcode == 08037| zipcode == 08234
@@ -135,6 +139,11 @@ merge m:1 zipcode using urban_pop
 edit //visual check looks good, now need to check merge variable
 
 tab _m //looks good, all zipcodes in sample from ns2_3 were matched to urban_pop dataset
+//no!
+ta zipcode if _merge==1
+//one zip is error missing a digit, and the other one should have merged! but for some reason looks like it is not in the using
+edit zipcode if _merge==2
+
 
 drop if _m<3 & _m>1 //this deletes all unnecessary data for zipcodes that do not have data in the ns2_3 dataset
 
@@ -171,7 +180,8 @@ save weather_zip, replace
 *----Merging ns2urb dataset with weather_zip dataset----*
 use weather_zip, clear
 
-merge 1:1 id using ns2urb
+merge 1:1 id using ns2urb //this id is or may be arbitrary and depend on sorting and in general doesnt convey intuitive info
+//can you merge instead on zipcode and/or date?
 
 edit //visual check looks good, now need to check merge variable
 
@@ -193,6 +203,7 @@ insheet using "https://docs.google.com/uc?id=1J03T2PISKT7ANZ0-0xVtDRR9rJgCmdFu&e
 
 *-----Cleaning up the data-----*
 
+//no need to rename them all! just do ones that you need like a handful :)
 *naming relevant variables*
 rename v2 zipcode
 rename v4 total_pop
@@ -257,6 +268,7 @@ keep zipcode total_pop tot_below_pov perc_below_pov tot_18_34 tot_belowpov18_34 
 
 
 //sorry for that giant chunk, I didn't know how to do that in a more consolidated way//
+//well instead of saying keep, can say drop, and can use wildcarts eg keep tot*
 
 drop in 1
 drop in 1
@@ -390,10 +402,13 @@ clear
 //////////////////////////////
 //////Reshaping Datasets//////
 //////////////////////////////
+//this breaks--you said clear so there is no data here, i assume you forgot
+use nos_merge_5, clear
 
 reshape wide lone, i(id) j(sex)
 sum lone1
 sum lone2
+//could rename lone1 to loneF and lone2 to loneM
 *this creates 2 new variables, loneliness score if male and loneliness score if female, so can at least get a sense of difference in loneliness b/t males and females*
 
 use nos_merge_5, clear
