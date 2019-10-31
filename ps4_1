@@ -1,0 +1,407 @@
+//Elizabeth Blake
+//Problem Set 4
+//Version 16
+
+/*This project uses data collected from undergraduate psychology students regarding their social health/social functioning
+(e.g. loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look
+at community/county-level factors that may influence these aspects of personal social health and social functioning. 
+Specifically, I am interested in studying whether community- or county-level factors of poverty, urbanity, and obesity might
+have an impact on individual levels of loneliness, social anxiety, and attachment style. I expect that these individual
+factors will be influenced by community- and/or county-level factors due to their social nature and the tendency for 
+individuals to engage in social comparison. To examine this potential relationship, I will be merging datasets from a variety
+of sources that provide information specifically relevant to these variables (poverty, urbanity, and obesity). I will also
+merge a dataset containing weather information specific to when the assessment of social health/functioning was captured, so
+as to reduce the chance of weather acting as a confounding variable. My ultimate goal is to use this merged dataset to provide 
+a comprehensive analysis of community- and county-level impact on individual social health and social functioning. These 
+analyses will be primarily exploratory, however I expect that urbanity will have the most predominant effect on social health
+within my collected sample.*/
+
+////////////////////////////////////////
+////Cleaning Original Data (nos_fne)////
+////////////////////////////////////////
+
+*-----Load raw data-----*
+use "https://docs.google.com/uc?id=1RpeYACqj_3xL1oizEjF07BC_1W06xxEx&export=download", clear
+
+pwd
+mkdir ~/DataManagement/datman
+cd~/DataManagement/datman
+
+*-----Clean/organize raw data-----*
+*sorting*
+sort date zipcode
+
+*creating id value*
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+*creating newvar county from zipcode data*
+gen county=.
+tostring county, replace
+replace county="atlantic" if zipcode == 08037| zipcode == 08234
+replace county ="burlington" if zipcode == 08015| zipcode == 08016| zipcode == 08046| zipcode == 08052| zipcode == 08053| zipcode == 08054|zipcode == 08075|zipcode == 08077
+replace county ="camden" if zipcode == 08002| zipcode == 08003| zipcode == 08012| zipcode == 08021| zipcode == 08030| zipcode == 08031| zipcode == 08033| zipcode == 08034| zipcode == 08035| zipcode == 08043| zipcode == 08049| zipcode == 08059| zipcode == 08081| zipcode == 08104| zipcode == 08105| zipcode == 08106| zipcode == 08107| zipcode == 08108| zipcode == 08109| zipcode == 08110
+replace county ="cape may" if zipcode == 08204
+replace county ="cumberland" if zipcode == 08332| zipcode == 08360
+replace county ="delaware" if zipcode == 19087
+replace county ="essex" if zipcode == 07112
+replace county ="gloucester" if zipcode == 08056| zipcode == 08080| zipcode == 08085| zipcode == 08086| zipcode == 08090| zipcode == 08094
+replace county ="hampden" if zipcode == 01109
+replace county ="mercer" if zipcode == 08638
+replace county ="middlesex" if zipcode == 08816| zipcode == 08817| zipcode == 08854| zipcode == 08901
+replace county ="new_castle" if zipcode == 19713
+replace county ="ocean" if zipcode == 08008
+replace county ="philadelphia" if zipcode == 19104| zipcode == 19120| zipcode == 19127| zipcode == 19133| zipcode == 19153
+
+tab county //looks good, all 229 zipcodes matched into their respective counties
+
+*convert string vars to numeric w/labels*
+encode Sex, gen (sex) 
+encode RaceEthnicity, gen (race_ethnic) 
+encode ParentEduc, gen (parent_edu)
+encode HouseInc, gen (house_inc)
+encode Firstgen, gen (firstgen)
+encode BornUS, gen (bornUS)
+encode EngLang, gen (eng_lang)
+encode GPA, gen (gpa)
+
+*drop string vars that were encoded*
+drop Sex RaceEthnicity ParentEduc HouseInc Firstgen BornUS EngLang GPA
+
+*narrowing down varlist*
+keep id sex race_ethnic parent_edu house_inc firstgen bornUS eng_lang gpa StatusRank zipcode date lone attachanx attachavoid fne county //keeps only the desired variables
+
+*creating zipcode level data*
+bys zipcode: egen m_lone_zip=mean(lone)
+//created a new variable (m_lone_zip) which represents the mean loneliness score for each zipcode
+
+bys zipcode: egen m_fne_zip=mean(fne)
+//created a new variable (m_fne_zip) which represents the mean social anxiety score for each zipcode
+
+bys county: egen m_lone_county=mean(lone)
+//created a new variable (m_lone_county) which represents the mean loneliness score for each county
+bys county: egen m_fne_county=mean(fne)
+//created a new variable (m_fne_county) which represents the mean social anxiety score for each county
+
+sort id 
+
+save nos_fne2, replace
+clear
+
+///////////////////////////////////////////////
+//////MERGE 1 (ALICE HH NJ 2016 dataset)///////
+///////////////////////////////////////////////
+
+//This dataset contains a count (circa 2016) of ALICE households (Asset Limited, Income Restrained, Employed) and above-ALICE households, sorted by county in NJ. The dataset also contains information about unemployment rates. It was collected online from the ALICE project website, and the complete dataset can be accessed at: "https://www.unitedforalice.org/new-jersey"//
+
+*-----Cleaning the ALICE HH dataset-----*
+clear
+use "https://docs.google.com/uc?id=19QIdnbSiiayqlbHJwYRUGQ5oRVSO4KVa&export=download", clear
+
+rename US_County county
+rename ALICEHousehold alice_hh
+rename AboveALICEHousehold above_alice_hh
+rename UnemploymentRate unemploy_rate
+
+replace county="atlantic" if county == "Atlantic"
+replace county="bergen" if county == "Bergen"
+replace county="burlington" if county == "Burlington"
+replace county="camden" if county == "Camden"
+replace county="cape may" if county == "Cape May"
+replace county="cumberland" if county == "Cumberland"
+replace county="essex" if county == "Essex"
+replace county="gloucester" if county == "Gloucester"
+replace county="hudson" if county == "Hudson"
+replace county="hunterdon" if county == "Hunterdon"
+replace county="mercer" if county == "Mercer"
+replace county="middlesex" if county == "Middlesex"
+replace county="monmouth" if county == "Monmouth"
+replace county="morris" if county == "Morris"
+replace county="ocean" if county == "Ocean"
+replace county="passaic" if county == "Passaic"
+replace county="salem" if county == "Salem"
+replace county="somerset" if county == "Somerset"
+replace county="sussex" if county == "Sussex"
+replace county="union" if county == "Union"
+replace county="warren" if county == "Warren"
+
+save ALICE_NJ_2016_data, replace //ALICE_NJ_2016_data is now ready to merge based on county
+
+*-----Merging the ALICE dataset w/ nos_fne2-----*
+use nos_fne2, clear
+
+merge m:1 county using ALICE_NJ_2016_data
+
+tab _m //19 not matched...this was expected! 
+tab county if _m==1 //There are 8 observations from counties not in ALICE_NJ_2016_data because they are outside of NJ (6 in PA, 1 in MA, 1 in DE). 
+tab county if _m==2 //There are 11 counties in ALICE_NJ_2016_data that have no observations in nos_fne_2. 
+//So, all data from counties that exist in both datasets was properly merged!
+
+drop if _m<3 & _m>1 //This gets rid of the unnecessary data from the 11 counties that do not exist in the nos_fne_2 dataset 
+
+rename _m _m1
+sum //visual check-looks good!
+save nos_merge_1b, replace
+
+///////////////////////////////////////////////
+/////MERGE 2 (Urban/Rural Continuum Dataset////
+///////////////////////////////////////////////
+
+//This dataset contains information about counties in NJ and PA, such as the county populations, and a scale of how urban or rural the countyies are as of 2013. It was collected online from the United States Department of Agriculture Economic Research Service. The full datset can be found at "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes.aspx"//
+
+*-------Cleaning the Urb/Rur Continuum Dataset-----*
+clear
+use "https://docs.google.com/uc?id=1CLe6Kh0uU5EWqCPiYIbzbctZHUJGATjx&export=download", clear
+
+rename A state
+rename B county
+rename C population
+rename D urban_level
+
+replace county="atlantic" if county == "Atlantic County"
+replace county="bergen" if county == "Bergen County"
+replace county="burlington" if county == "Burlington County"
+replace county="camden" if county == "Camden County"
+replace county="cape may" if county == "Cape May County"
+replace county="cumberland" if county == "Cumberland County" & state == "NJ"
+replace county="essex" if county == "Essex County"
+replace county="gloucester" if county == "Gloucester County"
+replace county="hudson" if county == "Hudson County"
+replace county="hunterdon" if county == "Hunterdon County"
+replace county="mercer" if county == "Mercer County" & state == "NJ"
+replace county="middlesex" if county == "Middlesex County"
+replace county="monmouth" if county == "Monmouth County"
+replace county="morris" if county == "Morris County"
+replace county="ocean" if county == "Ocean County"
+replace county="passaic" if county == "Passaic County"
+replace county="salem" if county == "Salem County"
+replace county="somerset" if county == "Somerset County" & state == "NJ"
+replace county="sussex" if county == "Sussex County"
+replace county="union" if county == "Union County" & state == "NJ"
+replace county="warren" if county == "Warren County" & state == "NJ"
+//this renamed all of the NJ counties that will need to be in the same format for merging
+//there are 5 counties in PA that have the same name as NJ counties. Only the NJ counties of these names are needed for the merge, so I am only formatting the NJ ones of those names here
+
+replace county="delaware" if county == "Delaware County"
+replace county="philadelphia" if county == "Philadelphia County"
+//this renamed the 2 PA counties from nos_merge_1b that will need to be in the same format for merging
+
+drop state population 
+
+save USDA2013urban, replace //USDA2013urban dataset is now ready to merge based on county
+
+*------Merging Urb/Rur dataset w/nos_merge_1b-----*
+use nos_merge_1b, clear
+
+merge m:1 county using USDA2013urban
+
+tab _merge //let's take a closer look at those unmatched values and make sure these were expected...
+tab county if _merge==1 //2 from master did not merge...this was expected! These 2 observations were from locations outside of the Urb/Rur dataset (1 in MA, 1 in DE)
+tab county if _merge==2 //The remaining 76 unmatched from using were from counties outside of those observed in nos_merge_1b, which are not needed
+
+drop if _merge<3 & _merge>1
+rename _merge _m2
+sum //visual check-looks good!
+
+save nos_merge_2b, replace
+
+//////////////////////////////////////////
+/////MERGE 3 (Weather data by zipcode)////
+//////////////////////////////////////////
+
+//This data was collected online from the National Climactic Data Center Global Surface Summary of Day. It reports the mean temperature and the total precipitation by zipcode and date. This data was collected from: "https://www.almanac.com/weather/history/NJ#"//
+
+use "https://docs.google.com/uc?id=10eiOeAUMgIqSaZ_lBgT8jljRbNCWpNm7&export=download", clear
+
+*----Cleaning up weather dataset*
+*create id values*
+sort date zipcode
+
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+save weather_zip, replace
+
+*----Merging nos_merge_2b dataset with weather_zip dataset----*
+use weather_zip, clear
+
+merge 1:1 id using nos_merge_2b //this id is used to identify individual participants' data; by merging on id the weather data will be matched to each participants' combined date and zipcode data, which are not unique identifiers themselves (some people participated in the survey in the same zipcode on the same day, so the weather would be the approximately the same for them)
+
+tab _merge //looks good, all 229 observations matched
+
+rename _merge _m3 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_3b, replace
+clear
+
+///////////////////////////////////////////
+////MERGE 4 (Poverty data by zipcode)//////
+///////////////////////////////////////////
+
+//This data came from the United States Census Bureau using the American Fact Finder online platform. This dataset provides information regarding poverty levels sorted by zipcode, age, sex, race, etc. The dataset was retrieved online from "https://factfinder.census.gov/faces/nav/jsf/pages/index.xhtml"//
+
+clear
+insheet using "https://docs.google.com/uc?id=1J03T2PISKT7ANZ0-0xVtDRR9rJgCmdFu&export=download"
+
+*-----Cleaning up the data-----*
+*naming relevant variables*
+rename v2 zipcode
+rename v4 total_pop
+rename v8 perc_below_pov
+rename v44 perc_belowpov18_34
+rename v50 perc_belowpov35_64
+rename v56 perc_belowpov60up
+rename v68 perc_male_belowpov
+rename v74 perc_female_belowpov
+rename v86 perc_belowpov_black
+rename v92 perc_belowpov_amer_indian
+rename v98 perc_belowpov_asian
+rename v104 perc_belowpov_pacific_isl
+rename v110 perc_belowpov_other
+rename v122 perc_belowpov_hispanic_lat
+rename v128 perc_belowpov_white_only
+rename v308 perc_belowpov18_24
+
+*removing unnecessary variables*
+drop v*
+d //looks correct, kept only the renamed variables that we wanted
+
+drop in 1
+drop in 1
+//gets rid of the unnecessary variable labels that were in the first two rows of the dataset
+
+destring zipcode total_pop, replace
+
+ foreach var of varlist perc_* {
+ replace `var' = "" if `var' == "-"
+ }
+//this replaces missing values that are represented as "-" with a missing value of "", so that they can still be destrung 
+
+destring perc_*, replace //this makes sure all the variables in the dataset are numeric, for future analyses
+
+save povertycensus_2, replace
+clear
+
+*-----Merging povertycensus_2 dataset with nos_merge_3b-----*
+use povertycensus_2, clear
+
+merge 1:m zipcode using nos_merge_3b
+
+tab _merge //looks good, 227 observations matched out of 229 total
+
+//2 unmatched from using, these were expected as these 2 values were from individuals whose locations were outside NJ and PA (1 in MA, 1 in DE). The povertycensus_2 dataset only provides information based on zipcode in NJ and PA, so the two individuals in MA and DE will be unmatched in this dataset.//
+
+drop if _merge<2 & _merge>0 //this will drop all the data from zipcodes not existing in original nos_fne dataset
+
+rename _merge _m4 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_4b, replace
+clear
+
+///////////////////////////////////////////////
+////MERGE 5 (Obesity Prevlance by County)//////
+///////////////////////////////////////////////
+
+//This dataset was collected from the New Jersey Department of Health, using the online New Jersey State Health Assessments Data. This dataset provides data regarding obesity prevalence sorted by county in the state of New Jersey. This data was collected online from "https://www-doh.state.nj.us/doh-shad/query/result/njbrfs/BMIObese/BMIObeseCrude11_.html"//
+
+use "https://docs.google.com/uc?id=1qljuaC4UHi7KligX4wygxnGydAbcUCUM&export=download", clear
+
+*----Cleaning up dataset first----*
+rename CountyofResidence county
+rename CountyofResidenceID county_id
+rename SampleSize tot_sample
+rename Percent perc_obese
+
+drop CILL CIUL RSE tot_sample //dropping unnecessary variables
+
+replace county="atlantic" if county == "Atlantic"
+replace county="bergen" if county == "Bergen"
+replace county="burlington" if county == "Burlington"
+replace county="camden" if county == "Camden"
+replace county="cape may" if county == "Cape May"
+replace county="cumberland" if county == "Cumberland"
+replace county="essex" if county == "Essex"
+replace county="gloucester" if county == "Gloucester"
+replace county="hudson" if county == "Hudson"
+replace county="hunterdon" if county == "Hunterdon"
+replace county="mercer" if county == "Mercer"
+replace county="middlesex" if county == "Middlesex"
+replace county="monmouth" if county == "Monmouth"
+replace county="morris" if county == "Morris"
+replace county="ocean" if county == "Ocean"
+replace county="passaic" if county == "Passaic"
+replace county="salem" if county == "Salem"
+replace county="somerset" if county == "Somerset"
+replace county="sussex" if county == "Sussex"
+replace county="union" if county == "Union"
+replace county="warren" if county == "Warren"
+
+tab county, mi
+//57 missing observations that just appear as ".", need to drop these!//
+
+//edit...can see that after row 22 there are a bunch of values that are just "." for some reason
+drop in 22/78
+
+save county_obesity2, replace
+
+*-----Merging with nos_merge_4b dataset-----*
+use county_obesity2, clear
+
+merge 1:m county using nos_merge_4b
+
+tab _merge
+//as in the first merge, there are some counties in both datasets that do not occur in the other dataset, so that is why there are 19 unmatched observations//
+
+//drop the counties that occur ONLY in the county_obesity2, because I have no other relevant data for those counties and therefore do not need their obesity data//
+drop if _merge<2 & _merge>0
+
+rename _merge _m5
+
+save nos_merge_5b, replace
+clear
+
+************************************
+///////////////////////////////
+////Visualizations Practice////
+///////////////////////////////
+
+*/This section is for practicing with making a variety of visualizations of the merged data, 
+both for potential future use in this project as well as for finding interesting aspects of 
+the data that I want to explore further. This is not a final product.*/
+
+use nos_merge_5b, clear
+
+****-----Scatterplots-----****
+tw (scatter attachanx fne, mcolor(navy) msymbol(smcircle)) //This showed the positive association between attachment anxiety and social anxiety
+
+tw (scatter attachanx lone, mcolor(navy) msymbol(smcircle)) //This showed the positive association between attachment anxiety and loneliness
+
+tw (scatter lone fne, mcolor(navy) msymbol(smcircle)) //This shows the positive association between loneliness and social anxiety within my sample
+
+tw (scatter lone house_inc, mcolor(navy) msymbol (smcircle))//I thought this one was interesting because it showed that the lowest and highest house incomes had lower loneliness scores, and the highest loneliness scores actually came from more average house incomes...this could be something to look into further!
+
+
+****------Histograms-----****
+histogram lone, frequency normal //This shows the distribution of loneliness scores...seems like this is sort of bimodal...what can I do with this?
+
+histogram fne, frequency normal //This shows the distribution of social anxiety scores...Looks like people are generally higher in social anxiety in my sample (distribution is skewed)
+
+histogram StatusRank, by(sex) //This shows that males in my sample had a skewed response to their status rank, whereas females seemed to follow the normal curve more...how do I add a frequency curve to this to demonstrate that more clearly?
+
+
+****------Bar graphs-----****
+graph bar fne, over(urban_level) //This is showing that people farthest from metropolitan areas with lowest population have higher social anxiety in my sample...this could be something to look into!
+
+graph bar StatusRank, over(urban_level) //This is showing that people closest to/in metropolitan areas with highest population rate themselves as ranking higher in society...interesting
+
+graph bar lone, over(county) //I like this graph, it is informative, but I'm not sure how to do what I did in GUI in code (I changed the x axis labels for county to be a 45 degree angle so they are readable and added a reference line of the average loneliness score for comparison)
+
+graph hbar (mean) lone, over (county) //This is the same as above, but with horizontal bars...might be more impactful this way (still need to find out how to add a reference line using code)
+
+graph hbar (mean) fne, over (county) //This shows social anxiety by county...I made changes in GUI to make it look nicer but I don't know how to do that in code
+
+graph bar perc_below_pov, over(urban_level) //This shows a pretty steady increase in the percent of population below poverty as urbanity decreases
