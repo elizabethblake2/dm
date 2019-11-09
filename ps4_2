@@ -367,6 +367,8 @@ clear
 //////////////////////////////
 /////Statistical analyses/////
 //////////////////////////////
+//pls add specific hypotheses at the beginning of the dofile after you state your research idea, and then now in statistical analyses
+//and below in visualizations try to get at these hypotheses, eg use the variables from the hypotheses, and draw conclusions
 
 use nos_merge_5b, clear
 
@@ -380,18 +382,29 @@ corr attachanx fne //this is a moderate positive correlation
 corr attachavoid fne //this is a weak positive correlation
 corr attachanx lone //this is a moderate positive correlation
 corr attachavoid lone //this is a moderate positive correlation
+//thats fine but consider sth like:
+pwcorr lone fne  perc_obese attachavoid alice_hh attachavoid, star(.05)
 
 ttest fne, by(sex) // pvalue = 0.0385, so p<.05...there is a significant difference between males and females in levels of social anxiety
 
 ttest attachavoid, by(sex) //pvalue = 0.0145, so p<.05...there is a significant difference between males and females in levels of attachment avoidance
 
 **Not sure what I will be doing for regressions...still need to figure out what is appropriate for my dataset*
+//totally fine!
 
 ////////////////////////////
 ///////Visualizations///////
 ////////////////////////////
 *-----This section will create visualizations of some of the above statistical analyses-----*
 tw (scatter lone fne, mcolor(navy) msymbol(smcircle)) || lfit lone fne //This shows the moderate positive correlation between loneliness and social anxiety within my sample
+
+//consider using mlab, eg
+gen mf=""
+replace mf="M" if sex==2
+replace mf="F" if sex==1
+tw (scatter lone fne, mcolor(navy) msymbol(smcircle) mlab(mf)) || lfit lone fne //This shows the moderate positive correlation between loneliness and social anxiety within my sample
+//then can see for instance that females score in top right part of the graph, can make it better, say make dots smaller etc
+
 
 tw (scatter fne gpa, mcolor(navy) msymbol(smcircle)) || lfit fne gpa //This shows the weak positive correlation between gpa and social anxiety within my sample
 
@@ -418,6 +431,7 @@ graph bar fne, over(urban_level, relabel(1 ">1,000,000" 2 "250,000-1,000,000" 3 
 graph bar StatusRank, over(urban_level, relabel(1 ">1,000,000" 2 "250,000-1,000,000" 3 " <250,000")) ytitle("Average Self-Rated Status Rank") title ("Status Rank by Urban/Rural Population Status", margin(medium))
 //This is showing that people closest to/in metropolitan areas with highest population rate themselves as ranking higher in society...interesting
 
+//per reference line: https://www.google.com/search?client=firefox-b-1-e&q=stata+add+reference+line
 graph hbar (mean) lone, over (county, reverse sort(lone)) yline(2.208734) ytitle("Average Loneliness Score") title ("Average Loneliness by County", margin(medium))
 //This is the same as above, but with horizontal bars...might be more impactful this way (still need to find out how to add a reference line using code)
 
