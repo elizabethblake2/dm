@@ -75,6 +75,8 @@ foreach zipcode in varlist {
 }
 
 tab county //looks good, all 229 zipcodes matched into their respective counties
+//nope!
+edit county zipcode //shows error, everything is camden, probably not a good place to do branching
 
 *convert string vars to numeric w/labels*
 
