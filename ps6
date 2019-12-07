@@ -1,6 +1,7 @@
 //Elizabeth Blake
 //Problem Set 6
 //Version 16
+version 16 //should say here
 
 /*This project uses data collected from undergraduate psychology students regarding their social health/social functioning (e.g. loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look at community/county-level factors that may influence these aspects of personal social health and social functioning. Specifically, I am interested in studying whether community- or county-level factors of poverty, urbanity, and obesity might have an impact on individual levels of loneliness, social anxiety, and attachment style. I expect that these individual factors will be influenced by community- and/or county-level factors due to their social nature and the tendency for individuals to engage in social comparison. To examine this potential relationship, I will be merging datasets from a variety of sources that provide information specifically relevant to these variables (poverty, urbanity, and obesity). I will also merge a dataset containing weather information specific to when the assessment of social health/functioning was captured and include this in my analyses, so as to reduce the chance of weather acting as a confounding variable. My ultimate goal is to use this merged dataset to provide a comprehensive analysis of community- and county-level impact on individual social health and social functioning. These analyses will be primarily exploratory, however I will outline my expectations and research questions below.
 
@@ -225,10 +226,11 @@ clear
 insheet using "https://docs.google.com/uc?id=1J03T2PISKT7ANZ0-0xVtDRR9rJgCmdFu&export=download"
 
 *-----Cleaning up the data-----*
-*naming relevant variables*
-rename v2 zipcode
-rename v4 total_pop
-rename v8 perc_below_pov
+*naming relevant variables* 
+//not necessary to change at all, matter of style and totally fine, but could make a bit more parsimonious like eg:
+rename v2 zipcode //zip
+rename v4 total_pop //totPop
+rename v8 perc_below_pov //perBelPov etc etc
 rename v44 perc_belowpov18_34
 rename v50 perc_belowpov35_64
 rename v56 perc_belowpov60up
