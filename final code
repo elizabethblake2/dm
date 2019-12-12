@@ -1,0 +1,625 @@
+//Elizabeth Blake
+//Data Management Fall 2019
+//Final Paper Code
+
+Version 16
+
+/*This project uses data collected from undergraduate psychology students regarding their social health/social functioning (e.g. loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look at community/county-level factors that may influence these aspects of personal social health and social functioning. Specifically, I am interested in studying whether community- or county-level factors of poverty, urbanity, and obesity might have an impact on individual levels of loneliness, social anxiety, and attachment style. Some previous research has supported the impact of community factors on loneliness, such as the effect of unemployment on loneliness (Lauder, Sharkey, & Mummery, 2004), and sense of community and neighborhood relations on loneliness (Prezza, Amici, Roberti, & Tedeschi, 2001). 
+
+I expect that these individual factors will be influenced by community- and/or county-level factors due to their social nature and the tendency for individuals to engage in social comparison. To examine this potential relationship, I will be merging datasets from a variety of sources that provide information specifically relevant to these variables (poverty, urbanity, and obesity). I will also merge a dataset containing weather information specific to when the assessment of social health/functioning was captured and include this in my analyses, so as to reduce the chance of weather acting as a confounding variable. My ultimate goal is to use this merged dataset to provide a comprehensive analysis of community- and county-level impact on individual social health and social functioning. These analyses will be primarily exploratory, however I will outline my expectations and research questions below.
+
+Hypotheses:
+1. I expect that level of urbanity will have a statistically significant effect on loneliness and social anxiety within my collected sample. More specifically, I expect that living in a more urban area will be associated with worse social health (greater loneliness and social anxiety), and that living in a more rural area will be associated with better social health (less loneliness and social anxiety).
+
+2. I expect that social health will differ by sex. Specifically, I expect females to have poorer social health (higher social anxiety and loneliness) compared to males.
+
+Research Questions:
+1. Do any of the following variables significantly impact social health (loneliness and social anxiety), at either the community (zipcode) level or county level?
+		(1) obesity
+		(2) poverty
+		(3) ALICE households status (Asset Limited, Income Restrained, Employed)
+2. What individual-level variables significantly impact:
+		(1) loneliness
+		(2) social anxiety
+		(3) attachment orientation (anxious attachment and avoidant attachment)
+
+Below I will assess my two hypotheses and attempt to answer my two research questions.*/
+
+////////////////////////////////////////
+////Cleaning Original Data (nos_fne)////
+////////////////////////////////////////
+
+*-----Load raw data-----*
+use "https://docs.google.com/uc?id=1RpeYACqj_3xL1oizEjF07BC_1W06xxEx&export=download", clear
+
+pwd
+mkdir ~/DataManagement/datman
+cd ~/DataManagement/datman
+
+*-----Clean/organize raw data-----*
+*sorting*
+sort date zipcode //The zipcode data imports without the leading zeros...after looking into this further, I see that Stata does not support the use of leading zeros that hold no mathematical value (such as a decimal place), so therefore this is unavoidable. However, further investigation shows that Stata is still able to recognize and utilize zipcodes whether or not there is a zero in front of the zipcode, so I have not encountered any issues with zipcodes not matching or not being recognized by Stata. For the purposes of this project, if a zipcode contains only 4 digits, it has a leading zero in its 5-digit official format.
+
+*creating id value*
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+*creating newvar county from zipcode data*
+gen county=.
+tostring county, replace
+
+replace county="atlantic" if zipcode == 08037| zipcode == 08234
+replace county ="burlington" if zipcode == 08015| zipcode == 08016| zipcode == 08046| zipcode == 08052| zipcode == 08053| zipcode == 08054|zipcode == 08075|zipcode == 08077
+replace county ="camden" if zipcode == 08002| zipcode == 08003| zipcode == 08012| zipcode == 08021| zipcode == 08030| zipcode == 08031| zipcode == 08033| zipcode == 08034| zipcode == 08035| zipcode == 08043| zipcode == 08049| zipcode == 08059| zipcode == 08081| zipcode == 08104| zipcode == 08105| zipcode == 08106| zipcode == 08107| zipcode == 08108| zipcode == 08109| zipcode == 08110
+replace county ="cape may" if zipcode == 08204
+replace county ="cumberland" if zipcode == 08332| zipcode == 08360
+replace county ="delaware" if zipcode == 19087
+replace county ="essex" if zipcode == 07112
+replace county ="gloucester" if zipcode == 08056| zipcode == 08080| zipcode == 08085| zipcode == 08086| zipcode == 08090| zipcode == 08094
+replace county ="hampden" if zipcode == 01109
+replace county ="mercer" if zipcode == 08638
+replace county ="middlesex" if zipcode == 08816| zipcode == 08817| zipcode == 08854| zipcode == 08901
+replace county ="new_castle" if zipcode == 19713
+replace county ="ocean" if zipcode == 08008
+replace county ="philadelphia" if zipcode == 19104| zipcode == 19120| zipcode == 19127| zipcode == 19133| zipcode == 19153
+
+tab county //looks good, all 229 zipcodes matched into their respective counties, no missings
+
+*convert string vars to numeric w/labels*
+
+encode Sex, gen (sex) 
+encode RaceEthnicity, gen (race_ethnic) 
+encode ParentEduc, gen (parent_edu)
+encode HouseInc, gen (house_inc)
+encode Firstgen, gen (firstgen)
+encode BornUS, gen (bornUS)
+encode EngLang, gen (eng_lang)
+encode GPA, gen (gpa)
+
+*drop string vars that were encoded*
+drop Sex RaceEthnicity ParentEduc HouseInc Firstgen BornUS EngLang GPA
+
+*narrowing down varlist*
+keep id sex race_ethnic parent_edu house_inc firstgen bornUS eng_lang gpa StatusRank zipcode date lone attachanx attachavoid fne county //keeps only the desired variables
+
+*creating zipcode level data*
+bys zipcode: egen m_lone_zip=mean(lone)
+//created a new variable (m_lone_zip) which represents the mean loneliness score for each zipcode
+bys zipcode: egen m_fne_zip=mean(fne)
+//created a new variable (m_fne_zip) which represents the mean social anxiety score for each zipcode
+
+*creating county level data*
+bys county: egen m_lone_county=mean(lone)
+//created a new variable (m_lone_county) which represents the mean loneliness score for each county
+bys county: egen m_fne_county=mean(fne)
+//created a new variable (m_fne_county) which represents the mean social anxiety score for each county
+
+*Calculating the standard deviations by county and zipcode for the social anxiety and loneliness
+bys county: egen sd_fne_county =sd(fne)
+bys county: egen sd_lone_county =sd(lone)
+bys zipcode: egen sd_fne_zip =sd(fne)
+bys zipcode: egen sd_lone_zip =sd(lone)
+
+*Some interesting tables based on this data*
+table county, c (mean lone sd lone n id)
+table zipcode, c (mean lone sd lone n id)
+table county, c (mean fne sd fne n id)
+table zipcode, c (mean fne sd fne n id)
+*Statistical analyses on this information will be completed in the analysis section*
+
+sort id 
+
+save nos_fne2, replace
+clear
+
+///////////////////////////////////////////////
+//////MERGE 1 (ALICE HH NJ 2016 dataset)///////
+///////////////////////////////////////////////
+
+//This dataset contains a count (circa 2016) of ALICE households (Asset Limited, Income Restrained, Employed) and above-ALICE households, sorted by county in NJ. The dataset also contains information about unemployment rates. It was collected online from the ALICE project website, and the complete dataset can be accessed at: "https://www.unitedforalice.org/new-jersey"//
+
+*-----Cleaning the ALICE HH dataset-----*
+clear
+use "https://docs.google.com/uc?id=19QIdnbSiiayqlbHJwYRUGQ5oRVSO4KVa&export=download", clear
+
+rename US_County county
+rename ALICEHousehold alice_hh
+rename AboveALICEHousehold above_alice_hh
+rename UnemploymentRate unemploy_rate
+
+foreach county in county {
+replace `county' = lower(`county')
+}
+
+save ALICE_NJ_2016_data, replace //ALICE_NJ_2016_data is now ready to merge based on county
+
+*-----Merging the ALICE dataset w/ nos_fne2-----*
+use nos_fne2, clear
+
+merge m:1 county using ALICE_NJ_2016_data
+
+tab _m //19 not matched...this was expected! 
+tab county if _m==1 //There are 8 observations from counties not in ALICE_NJ_2016_data because they are outside of NJ (6 in PA, 1 in MA, 1 in DE). 
+tab county if _m==2 //There are 11 counties in ALICE_NJ_2016_data that have no observations in nos_fne_2. 
+//So, all data from counties that exist in both datasets was properly merged!
+
+drop if _m<3 & _m>1 //This gets rid of the unnecessary data from the 11 counties that do not exist in the nos_fne_2 dataset 
+
+rename _m _m1
+sum //visual check-looks good!
+save nos_merge_1b, replace
+
+///////////////////////////////////////////////
+/////MERGE 2 (Urban/Rural Continuum Dataset////
+///////////////////////////////////////////////
+
+//This dataset contains information about counties in NJ and PA, such as the county populations, and a scale of how urban or rural the countyies are as of 2013. It was collected online from the United States Department of Agriculture Economic Research Service. The full datset can be found at "https://www.ers.usda.gov/data-products/rural-urban-continuum-codes.aspx"//
+
+*-------Cleaning the Urb/Rur Continuum Dataset-----*
+clear
+use "https://docs.google.com/uc?id=1CLe6Kh0uU5EWqCPiYIbzbctZHUJGATjx&export=download", clear
+
+rename A state
+rename B county
+rename C population
+rename D urban_level
+
+foreach county in county {
+	replace county = lower(county) if state == "NJ" | county == "Delaware County" | county == "Philadelphia County"
+	replace county = subinstr(county, " county", "", .) if state == "NJ" | county == "delaware county" | county == "philadelphia county"
+}
+//this loop renamed all of the NJ counties and the 2 PA counties that will need to be in the same format for merging
+
+drop state population 
+
+save USDA2013urban, replace //USDA2013urban dataset is now ready to merge based on county
+
+*------Merging Urb/Rur dataset w/nos_merge_1b-----*
+use nos_merge_1b, clear
+
+merge m:1 county using USDA2013urban
+
+tab _merge //let's take a closer look at those unmatched values and make sure these were expected...
+tab county if _merge==1 //2 from master did not merge...this makes sense! These 2 observations were from locations outside of the Urb/Rur dataset (1 in MA, 1 in DE)
+tab county if _merge==2 //The remaining 76 unmatched from using were from counties outside of those observed in nos_merge_1b, which are therefore not needed
+
+drop if _merge<3 & _merge>1
+rename _merge _m2
+sum //visual check-looks good!
+
+save nos_merge_2b, replace
+
+//////////////////////////////////////////
+/////MERGE 3 (Weather data by zipcode)////
+//////////////////////////////////////////
+
+//This data was collected online from the National Climactic Data Center Global Surface Summary of Day. It reports the mean temperature and the total precipitation by zipcode and date. There is no downloadable dataset available for this data, so the dataset used below was compiled by conducting individual searches for the weather of the necessary dates and zipcodes. This data was collected from: "https://www.almanac.com/weather/history/NJ#"//
+
+use "https://docs.google.com/uc?id=10eiOeAUMgIqSaZ_lBgT8jljRbNCWpNm7&export=download", clear
+
+*----Cleaning up weather dataset*
+*create id values*
+sort date zipcode
+
+set obs 229
+egen seq = fill (1 2 3 4 5 6 7 8 9 10)
+rename seq id
+order id
+
+save weather_zip, replace
+
+*----Merging nos_merge_2b dataset with weather_zip dataset----*
+use weather_zip, clear
+
+merge 1:1 id using nos_merge_2b //this id is used to identify individual participants' data; by merging on id the weather data will be matched to each participants' combined date and zipcode data, which are not unique identifiers themselves (some people participated in the survey in the same zipcode on the same day, so the weather would be the approximately the same for them)
+
+tab _merge //looks good, all 229 observations matched
+
+rename _merge _m3 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_3b, replace
+clear
+
+///////////////////////////////////////////
+////MERGE 4 (Poverty data by zipcode)//////
+///////////////////////////////////////////
+
+//This data came from the United States Census Bureau using the American Fact Finder online platform. This dataset provides information regarding poverty levels sorted by zipcode, age, sex, race, etc. The dataset was retrieved online from "https://factfinder.census.gov/faces/nav/jsf/pages/index.xhtml"//
+
+clear
+insheet using "https://docs.google.com/uc?id=1J03T2PISKT7ANZ0-0xVtDRR9rJgCmdFu&export=download"
+
+*-----Cleaning up the data-----*
+*naming relevant variables*
+rename v2 zipcode
+rename v4 total_pop
+rename v8 perc_below_pov
+rename v44 perc_belowpov18_34
+rename v50 perc_belowpov35_64
+rename v56 perc_belowpov60up
+rename v68 perc_male_belowpov
+rename v74 perc_female_belowpov
+rename v86 perc_belowpov_black
+rename v92 perc_belowpov_amer_indian
+rename v98 perc_belowpov_asian
+rename v104 perc_belowpov_pacific_isl
+rename v110 perc_belowpov_other
+rename v122 perc_belowpov_hispanic_lat
+rename v128 perc_belowpov_white_only
+rename v308 perc_belowpov18_24
+
+*removing unnecessary variables*
+drop v*
+d //looks correct, kept only the renamed variables that we wanted
+
+drop in 1
+drop in 1
+//gets rid of the unnecessary variable labels that were in the first two rows of the dataset
+
+destring zipcode total_pop, replace
+
+ foreach var of varlist perc_* {
+ replace `var' = "" if `var' == "-"
+ }
+//this replaces missing values that are represented as "-" with a missing value of "", so that they can still be destrung 
+
+destring perc_*, replace //this makes sure all the variables in the dataset are numeric, for future analyses
+
+save povertycensus_2, replace
+clear
+
+*-----Merging povertycensus_2 dataset with nos_merge_3b-----*
+use povertycensus_2, clear
+
+merge 1:m zipcode using nos_merge_3b
+
+tab _merge //looks good, 227 observations matched out of 229 total
+
+//2 unmatched from using, these were expected as these 2 values were from individuals whose locations were outside NJ and PA (1 in MA, 1 in DE). The povertycensus_2 dataset only provides information based on zipcode in NJ and PA, so the two individuals in MA and DE will be unmatched in this dataset.//
+
+drop if _merge<2 & _merge>0 //this will drop all the data from zipcodes not existing in original nos_fne dataset
+
+rename _merge _m4 //prevents future merges from giving error mess. if _merge already exists
+
+save nos_merge_4b, replace
+clear
+
+///////////////////////////////////////////////
+////MERGE 5 (Obesity Prevlance by County)//////
+///////////////////////////////////////////////
+
+//This dataset was collected from the New Jersey Department of Health, using the online New Jersey State Health Assessments Data. This dataset provides data regarding obesity prevalence sorted by county in the state of New Jersey. This data was collected online from "https://www-doh.state.nj.us/doh-shad/query/result/njbrfs/BMIObese/BMIObeseCrude11_.html"//
+
+use "https://docs.google.com/uc?id=1qljuaC4UHi7KligX4wygxnGydAbcUCUM&export=download", clear
+
+*----Cleaning up dataset first----*
+rename CountyofResidence county
+rename CountyofResidenceID county_id
+rename SampleSize tot_sample
+rename Percent perc_obese
+
+drop CILL CIUL RSE tot_sample //dropping unnecessary variables
+
+foreach county in county {
+replace `county' = lower(`county')
+}
+
+tab county, mi
+//57 missing observations that just appear as ".", need to drop these!//
+
+drop if county_id ==. //this dropped those missing values
+
+save county_obesity2, replace
+
+*-----Merging with nos_merge_4b dataset-----*
+use county_obesity2, clear
+
+merge 1:m county using nos_merge_4b
+
+tab _merge
+//as in the first merge, there are some counties in both datasets that do not occur in the other dataset, so that is why there are 19 unmatched observations//
+
+//drop the counties that occur ONLY in the county_obesity2, because I have no other relevant data for those counties and therefore do not need their obesity data//
+drop if _merge<2 & _merge>0
+
+rename _merge _m5
+
+*Now that all datasets are merged, prepping the data for better-looking outputs and graphs by making the counties in the "proper" format
+replace county = "new castle" if county == "new_castle" //need to do this first because the "_" messes with the "proper" function
+foreach county in county {
+replace `county' = proper(`county')
+}
+tab county //looks correct!
+
+save nos_merge_5b, replace
+clear
+
+///////////////////////////////////
+//////Descriptive Statistics///////
+///////////////////////////////////
+use nos_merge_5b, clear
+
+summarize lone, detail
+summarize fne, detail
+bysort sex: summarize fne, detail //pretty different skew here..will investigate this further during analyses!
+bysort sex: summarize lone, detail //again, pretty different skew. Will need to investigate this during analyses
+
+tabstat lone fne StatusRank perc_below_pov alice_hh perc_obese unemploy_rate, by(county) statistics(mean sd)
+//any missing datapoints are from counties where there were either not enough individual participants to calculate sd, or there is not enough data for the county because it is outside of NJ and PA
+
+//////////////////////////////////////////////////
+/////Initial inferential statistical analyses/////
+//////////////////////////////////////////////////
+use nos_merge_5b, clear
+
+pwcorr lone fne perc_obese attachavoid alice_hh unemploy_rate attachanx meantemp gpa StatusRank perc_below_pov, star(.05)
+//This correlational table shows that there are significant correlations at the p<.05 level between:
+	*loneliness and: social anxiety, attachment anxiety, attachment avoidance, and status rank (negative correlation)
+	*social anxiety and: attachment avoidance, attachment anxiety, and GPA
+	*obesity prevalence and: attachment avoidance and ALICE households (negative correlation)
+	*attachment avoidance and: ALICE households and attachment anxiety
+	*unemployment rate and: attachment anxiety and status rank (negative correlation)
+
+ttest fne, by(sex) // There is a significant difference between males and females in levels of social anxiety, p = 0.0385
+
+ttest attachavoid, by(sex) // There is a significant difference between males and females in levels of attachment avoidance, p = 0.0145
+
+ttest StatusRank, by(sex) // There is a significant difference between males and females in self-reported status rank, p= 0.0112
+
+********************************INTERPRETATION************************************
+//While the correlations above do not answer any of my research questions specifically, they can provide a better understanding of the combined dataset, as well as provide direction for future statistical testing. 
+
+//The three t-tests conducted above demonstrate that sex does indeed have an impact on factors of social health and social functioning.
+**********************************************************************************
+
+////////////////////////////
+///////Visualizations///////
+////////////////////////////
+*-----This section will create visualizations of some of the above corrrelational analyses-----*
+tw (scatter lone fne, mcolor(navy) msymbol(smcircle) title("Loneliness and Social Anxiety") xtitle(Social Anxiety) ytitle(Loneliness) legend(off)) || lfit lone fne 
+
+tw (scatter fne gpa, mcolor(navy) msymbol(smcircle) title("Social Anxiety and GPA") xtitle(GPA) ytitle(Social Anxiety) legend(off) note(GPA scale is in increments of 0.5)) || lfit fne gpa 
+
+tw (scatter attachanx fne, mcolor(navy) msymbol(smcircle) title("Attachment Anxiety and Social Anxiety") xtitle(Social Anxiety) ytitle(Attachment Anxiety) legend(off)) || lfit attachanx fne 
+
+tw (scatter attachavoid fne, mcolor(navy) msymbol(smcircle) title("Attachment Avoidance and Social Anxiety") xtitle(Social Anxiety) ytitle(Attachment Avoidance) legend(off)) || lfit attachavoid fne 
+
+tw (scatter attachanx lone, mcolor(navy) msymbol(smcircle) title("Attachment Anxiety and Loneliness") xtitle(Loneliness) ytitle(Attachment Anxiety) legend(off)) || lfit attachanx lone 
+
+tw (scatter attachavoid lone, mcolor(navy) msymbol(smcircle) title("Attachment Avoidance and Loneliness") xtitle(Loneliness) ytitle(Attachment Avoidance) legend(off)) || lfit attachavoid lone 
+
+*-----This section includes additional interesting visualizations-----*
+tw (scatter lone house_inc, mcolor(navy) msymbol (smcircle) title("Loneliness and Household Income") xtitle(Household Income) ytitle(Loneliness) legend(off)) //This one is interesting because it shows that the lowest and highest house incomes had lower loneliness scores, and the highest loneliness scores actually came from more average house incomes.
+
+histogram lone, frequency normal //This looks like the distribution of loneliness scores is bimodal
+
+histogram fne, frequency normal //Looks like people are generally higher in social anxiety in my sample (distribution is skewed)
+
+histogram StatusRank, by(sex) normal //This shows that males in my sample had a skewed response to their status rank, whereas females seemed to follow the normal curve more. This difference was statistically significant when tested in the previous section.
+
+graph bar fne, over(urban_level, relabel(1 ">1,000,000" 2 "250,000-1,000,000" 3 " <250,000")) ytitle("Average Social Anxiety") yline(3.854076) title("Average Social Anxiety by Urban/Rural Population Status", margin(medium)) //This is showing that people farthest from metropolitan areas with lowest population have higher social anxiety in my sample...this is the opposite of what I expected!
+
+graph bar StatusRank, over(urban_level, relabel(1 ">1,000,000" 2 "250,000-1,000,000" 3 " <250,000")) ytitle("Average Self-Rated Status Rank") title ("Status Rank by Urban/Rural Population Status", margin(medium)) //This is showing that people closest to/living in metropolitan areas with highest population rate themselves as ranking higher in society. 
+
+graph bar perc_below_pov, over(urban_level, relabel(1 ">1,000,000" 2 "250,000-1,000,000" 3 " <250,000")) ytitle("Percent Below Poverty", margin(medium)) yline(11.71674) title ("Percent Below Poverty by Urban/Rural Population Status", margin(medium))
+//This shows a pretty steady increase in the percent of population below poverty as urbanity decreases
+
+graph hbar (mean) fne, over (county, reverse sort(fne)) yline(3.854076) ytitle("Average Social Anxiety") title ("Average Social Anxiety by County", margin(medium)) 
+
+graph hbar (mean) lone, over (county, reverse sort(lone)) yline(2.208734) ytitle("Average Loneliness Score") title ("Average Loneliness by County", margin(medium)) 
+
+////////////////////////////////////
+////////2nd Round of Analyses///////
+////////////////////////////////////
+*-----This is where I will do my regression analyses-----*
+
+ssc install estout, replace
+
+//To determine the effect of social health on loneliness
+reg lone fne attachanx
+estimates store m1, title(Model1)
+reg lone fne attachanx attachavoid
+estimates store m2, title(Model2)
+reg lone fne attachanx attachavoid StatusRank
+estimates store m3, title(Model3)
+
+estout m1 m2 m3, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+
+*************************************************************
+//The above regression model indicates that poor social functioning (i.e., social anxiety, insecure attachment styles, status in society) predicts greater loneliness in my sample. This helps to answer part of my 2nd research question: poor social functioning at the individual level is associated with greater loneliness.
+*************************************************************
+	
+//Now let's reshape this dataset and see how the above finding breaks down between males and females by creating two new variables: loneliness if female and loneliness if male
+reshape wide lone, i(id) j(sex)
+rename lone1 loneF
+rename lone2 loneM
+sum loneF
+sum loneM
+*We can see that generally, females and males scored very similarly in loneliness. But does social health impact loneliness differently based on sex?
+
+local depvar fne attachanx attachavoid StatusRank
+local sex loneF loneM
+foreach sex in `sex'{
+	foreach outcome in `depvar' {
+		reg `sex' `depvar'
+			estimates store m1, title(Model1)
+			estimates store m2, title(Model2)
+			estimates store m3, title(Model3)
+			estout m1 m2 m3, cells(b(star fmt(3)) se(par fmt(2))) ///
+				legend label varlabels(_cons Constant)
+	}
+}
+*Significance at all levels of the model for females
+*No significant at any level of the model for males
+
+***************************************************************
+//The above two regression models indicate that poor social functioning is a predictor of loneliness for females, but not for males. Therefore, this answers part of my 2nd research question: Sex differentially impacts what factors contribute to loneliness.
+***************************************************************
+
+use nos_merge_5b, clear
+
+//Now to determine the effect of social health on social anxiety
+reg fne attachanx attachavoid
+estimates store m1, title(Model1)
+reg fne attachanx attachavoid StatusRank
+estimates store m2, title(Model2)
+reg fne attachanx attachavoid StatusRank lone
+estimates store m3, title(Model3)
+
+estout m1 m2 m3, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*Only attachment anxiety and loneliness were significant predictors of social anxiety
+
+//Now let's reshape this dataset again and see how the above finding breaks down between males and females by creating two new variables: social anxiety if female and social anxiety if male
+reshape wide fne, i(id) j(sex)
+rename fne1 fneF
+rename fne2 fneM
+sum fneF
+sum fneM
+*We can see that generally, females score slightly higher on average than males on social anxiety. But does social health impact social anxiety differently based on sex?
+
+//To determine the effect of social health on social anxiety in females
+reg fneF attachanx attachavoid
+estimates store m1, title(Model1)
+reg fneF attachanx attachavoid StatusRank
+estimates store m2, title(Model2)
+reg fneF attachanx attachavoid StatusRank lone
+estimates store m3, title(Model3)
+
+estout m1 m2 m3, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*Attachment anxiety and attachment avoidance significantly predict social anxiety in females, but once loneliness is added to the model then loneliness is the sole significant predictor variable.
+
+//To determine the effect of social health on social anxiety in males
+reg fneM attachanx attachavoid
+estimates store m1, title(Model1)
+reg fneM attachanx attachavoid StatusRank
+estimates store m2, title(Model2)
+reg fneM attachanx attachavoid StatusRank lone
+estimates store m3, title(Model3)
+
+estout m1 m2 m3, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*Attachment anxiety is the sole significant predictor of social anxiety in males in this model.
+
+***************************************************************
+//The above two regression models indicate that loneliness is the main predictor of social anxiety for females, but for males the main predictor of social anxiety is attachment anxiety. This helps to answer my 2nd research question: sex differentially impacts what individual-level factors predict social anxiety.
+***************************************************************
+
+use nos_merge_5b, clear
+
+//To determine the effect of poverty levels by age on reported status rank
+loc a StatusRank perc_below_pov perc_belowpov18_24
+
+reg `a'
+estimates store m1, title(Model 1)
+reg `a' perc_belowpov18_34
+estimates store m2, title(Model 2)
+reg `a' perc_belowpov18_34 perc_belowpov35_64
+estimates store m3, title(Model 3)
+reg `a' perc_belowpov18_34 perc_belowpov35_64 perc_belowpov60up
+estimates store m4, title(Model 4)
+
+estout m1 m2 m3 m4, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*Poverty levels by age had no significant effect on reported status rank
+
+//To determine the effect of poverty levels by race/ethnicity on reported status rank
+loc b StatusRank perc_belowpov_black perc_belowpov_amer_indian
+
+reg `b'
+estimates store m1, title(Model 1)
+reg `b' perc_belowpov_asian
+estimates store m2, title(Model 2)
+reg `b' perc_belowpov_asian perc_belowpov_pacific_isl
+estimates store m3, title(Model 3)
+reg `b' perc_belowpov_asian perc_belowpov_pacific_isl perc_belowpov_other
+estimates store m4, title(Model 4)
+reg `b' perc_belowpov_asian perc_belowpov_pacific_isl perc_belowpov_other perc_belowpov_hispanic_lat
+estimates store m5, title(Model 5)
+reg `b' perc_belowpov_asian perc_belowpov_pacific_isl perc_belowpov_other perc_belowpov_hispanic_lat perc_belowpov_white_only
+estimates store m6, title(Model 6)
+
+estout m1 m2 m3 m4 m5 m6, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*Poverty levels by race/ethnicity had no significant effect on reported status rank
+
+//To determine the effect of community/county-level factors that may impact loneliness
+loc c lone unemploy_rate alice_hh
+
+reg `c'
+estimates store m1, title(Model 1)
+reg `c' perc_below_pov 
+estimates store m2, title(Model 2)
+reg `c' perc_below_pov perc_obese
+estimates store m3, title(Model 3)
+reg `c' perc_below_pov perc_obese 
+estimates store m4, title(Model 4)
+reg `c' perc_below_pov perc_obese meantemp
+estimates store m5, title(Model 5)
+
+estout m1 m2 m3 m4 m5, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+*No community/county-level factors in this model were significant predictors of loneliness scores
+
+//To determine the effect of community/county-level factors that may impact social anxiety
+loc d fne unemploy_rate alice_hh
+
+reg `d'
+estimates store m1, title(Model 1)
+reg `d' perc_below_pov 
+estimates store m2, title(Model 2)
+reg `d' perc_below_pov perc_obese
+estimates store m3, title(Model 3)
+reg `d' perc_below_pov perc_obese 
+estimates store m4, title(Model 4)
+reg `d' perc_below_pov perc_obese meantemp
+estimates store m5, title(Model 5)
+
+estout m1 m2 m3 m4 m5, cells(b(star fmt(3)) se(par fmt(2))) ///
+	legend label varlabels(_cons Constant)
+***********************************************************************************
+*The above regression models answered my first research question: No community/county-level factors in this dataset were significant predictors of social health
+***********************************************************************************
+
+/*Below I will summarize the findings in response to my hypotheses and research questions:
+Hypotheses:
+1. Level of urbanity did not have a statistically significant effect on loneliness or social anxiety within my collected sample. While there was a trend, in which greater urbanity had lower social anxiety, this trend was not statistically significant. 
+
+2. Sex did moderate some aspects of social health/functioning. The following was found:
+	a. Poor social functioning predicts loneliness for females, but not for males
+	b. Loneliness is the main predictor of social anxiety for females, but not for males. 
+	c. Attachment anxiety is the main predictor of social anxiety for males, but not for females.
+
+
+Research questions:
+1. None of the proposed community/county-level variables (obesity, poverty, or ALICE households) significantly impacted any aspects of social health in the regression model.
+
+2. Individual level variables that significantly impact aspects of social health:
+	a. Sex: There is a significant difference between males and females in levels of social anxiety, attachment avoidance, and self-reported status rank.
+	b. Poor social health in attachment anxiety, attachment avoidance, or loneliness at the individual level significantly increase the risk of social anxiety for females.
+
+Exploratory findings:
+	While regression models did not find any statistically significant relationships between community or county-level factors on social health, there were some statistically significant correlations. This does not imply causation or directionality, but rather suggests that future research might investigate these significant correlations further. These correlations could be spurious, or could be due to a third variable that was not assessed in this particular dataset. The following statistically significant (p<.05) correlations were found:
+	Community/county-level factors:
+	a. Obesity prevalence was positively associated with an avoidant attachment style.
+	b. Percentage of ALICE houshould was positively associated with an avoidant attachment style.
+	c. Unemployment rate was positively associated with an anxious attachment style.
+	Individual level factors:
+	a. Loneliness was positively associated with social anxiety.
+	b. GPA was positively associated with social anxiety.
+	c. Social anxiety was positively associated with an anxious attachment style.
+	d. Loneliness was positively associated with an anxious attachment style.
+	e. Loneliness was positively associated with an avoidant attachment style.
+	f. Social anxiety was positively associated with an avoidant attachment style.
+	
+To conclude:
+	Based on the findings from these analyses and this particular dataset, it appears that individual level factors are more likely to cause differences in social health, compared to community or county-level factors. While there are some significant associations among community/county-level factors, these correlations cannot imply causation and therefore I cannot conclude that they definitively have an impact social health. Future research might focus on selecting different community/county-level factors to study in relation to social health, or might collect a more geographically diverse sample. This dataset had a limited geographic area of participants (NJ, PA, DE, MA), and therefore this is a limitation of this research. However, these findings continue to support previous research that social health influences loneliness (Lauder et al., 2004; Prezza et al., 2001; Vaux, 1988), and provide a foundation for future research in the area of investigating community/county-level factors and social health.
+
+References:
+Lauder, W., Sharkey, S., & Mummery, K. (2004). A community survey of loneliness. Journal of Advanced Nursing, 46(1), 88-94.
+Prezza, M., Amici, M., Roberti, T., Tedeschi, G. (2001). Sense of community referred to the whole town: Its relations with neighboring, loneliness, life satisfaction, and area of residence. Journal of Community Psychology, 29(1), 29-52.
+Vaux, A. (1988). Social and personal factors in loneliness. Journal of Social & Clinical Psychology, 6, 462-471.
