@@ -1,8 +1,10 @@
+//stata files must have .do extension!
+
 //Elizabeth Blake
 //Data Management Fall 2019
 //Final Paper Code
 
-Version 16
+Version 16 //this is broken! dont capitalize commands!!
 
 /*This project uses data collected from undergraduate psychology students regarding their social health/social functioning (e.g. loneliness, social anxiety, and attachment style), and will attempt to merge this data with location-based data to look at community/county-level factors that may influence these aspects of personal social health and social functioning. Specifically, I am interested in studying whether community- or county-level factors of poverty, urbanity, and obesity might have an impact on individual levels of loneliness, social anxiety, and attachment style. Some previous research has supported the impact of community factors on loneliness, such as the effect of unemployment on loneliness (Lauder, Sharkey, & Mummery, 2004), and sense of community and neighborhood relations on loneliness (Prezza, Amici, Roberti, & Tedeschi, 2001). 
 
@@ -108,6 +110,8 @@ table zipcode, c (mean lone sd lone n id)
 table county, c (mean fne sd fne n id)
 table zipcode, c (mean fne sd fne n id)
 *Statistical analyses on this information will be completed in the analysis section*
+//right but you should note that many places have very low n, even like 1, so how useful and representative are those? 
+
 
 sort id 
 
